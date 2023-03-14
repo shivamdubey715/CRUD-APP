@@ -1,95 +1,135 @@
+const { validationResult } = require('express-validator');
 const Event = require('../models/event');
 
 module.exports = {
-  showEvents: showEvents,
-  showSingle: showSingle,
-  seedEvents: seedEvents,
-  showCreate: showCreate,
-  processCreate: processCreate
+  showEvents,
+  showSingle,
+  seedEvents,
+  showCreate,
+  processCreate,
+  // showEdit,
+  // processEdit: processEdit,
+  // deleteEvent: deleteEvent
 };
-// show all events
-function showEvents(req, res) {
-  Event.find({})
-    .then((events) => {
-      res.render("pages/events", { events: events });
-    })
-    .catch((err) => {
-      res.status(404);
-      res.send("Event not found");
+
+/**
+ * Show all events
+ */
+async function showEvents(req, res) {
+  try {
+    const events = await Event.find({});
+    res.render('pages/events', { 
+      events: events,
+      success: req.flash('success')
     });
+  } catch (err) {
+    res.status(404);
+    res.send('Events not found!');
+  }
 }
 
-// show a single event
-function showSingle(req, res) {
-  Event.findOne({ slug: req.params.slug })
-    .then((event) => {
-      if (event) {
-        res.render("pages/single", {
-          event: event,
-          success: req.flash("success"),
-        });
-      } else {
-        res.status(404);
-        res.send("Event not found");
-      }
-    })
-    .catch((err) => {
+/**
+ * Show a single event
+ */
+async function showSingle(req, res) {
+  try {
+    const event = await Event.findOne({ slug: req.params.slug });
+    if (!event) {
       res.status(404);
-      res.send("Event not found");
+      return res.send('Event not found!');
+    }
+    res.render('pages/single', {
+      event: event,
+      success: req.flash('success')
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('An error occurred while finding the event.');
+  }
 }
 
-//seed our database
+/**
+ * Seed the database
+ */
 function seedEvents(req, res) {
-  //create some events
+  // create some events
   const events = [
-    { name: "Basketball", description: "Throwing into a basket." },
-    { name: "Swimming", description: "Michael Phelps is the fats fish" },
-    { name: "Weightlifting", description: "Lifting heavy things up" },
-    { name: "PingPong", description: "Super fast paddles" },
+    { name: 'Basketball', description: 'Throwing into a basket.' },
+    { name: 'Swimming', description: 'Michael Phelps is the fast fish.' },
+    { name: 'Weightlifting', description: 'Lifting heavy things up' },
+    { name: 'Ping Pong', description: 'Super fast paddles' }
   ];
 
-  //use the event model to insert/save
+  // use the Event model to insert/save
   Event.remove({}, () => {
     for (eve of events) {
       var newEvent = new Event(eve);
       newEvent.save();
-    };
+    }
   });
-  
 
-  //seeded!
-  res.send("Database seeded");
+  // seeded!
+  res.send('Database seeded!');
 }
 
-//show the create form
+/**
+ * Show the create form
+ */
 function showCreate(req, res) {
-  res.render("pages/create", {
-    errors: req.flash("errors"),
+  res.render('pages/create', {
+    errors: req.flash('errors')
   });
 }
 
-//process the creation form
-//process the creation form
-function processCreate(req, res) {
-  //create a new event
+/**
+ * Process the creation form
+ */
+async function processCreate(req, res) {
+  // validate information
+  const schema = {
+    name: {
+      in: ['body'],
+      notEmpty: true,
+      errorMessage: 'Name is required.'
+    },
+    description: {
+      in: ['body'],
+      notEmpty: true,
+      errorMessage: 'Description is required.'
+    }
+  };
+
+  // if there are errors, redirect and save errors to flash
+  const result = validationResult(req);
+  if (!result.isEmpty()) {
+    req.flash('errors', result.array().map(err => err.msg));
+    return res.redirect('/events/create');
+  }
+
+  // create a new event
   const event = new Event({
     name: req.body.name,
-    description: req.body.description,
+    description: req.body.description
   });
 
-  //save event
-  event.save((err) => {
-    if (err) {
-      throw err;
-    }
-    //set a successuful flash message
-    req.flash('success', 'Successfuly created event!');
-
-    //redirect to the newly created event
+  // save event
+  try {
+    await event.save();
+    // set a successful flash message
+    req.flash('success', 'Successfully created event!');
+    // redirect to the newly created event
     res.redirect(`/events/${event.slug}`);
-  });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('An error occurred while saving the event.');
+  }
 }
 
+// show the edit form
+// function (req, res){
+//   res.render('pages/edit')
+// }
 
+// //process the edit form
+// function
 
